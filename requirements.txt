@@ -1,0 +1,6 @@
+# requirements.txt for the PyTorch + Streamlit handwritten digit generator app
+
+streamlit
+matplotlib
+torch
+torchvision
