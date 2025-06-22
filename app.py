@@ -14,6 +14,113 @@ Original file is located at
 
 # Save this as app.py
 
+# Install required packages (do this in Colab or local)
+# !pip install torch torchvision streamlit
+
+# =========================
+# 1. Train a simple GAN model for MNIST digits
+# =========================
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.utils.data import DataLoader
+
+# Generator model
+class Generator(nn.Module):
+    def __init__(self, z_dim=100, img_dim=28*28):
+        super(Generator, self).__init__()
+        self.gen = nn.Sequential(
+            nn.Linear(z_dim + 10, 128),
+            nn.ReLU(),
+            nn.Linear(128, 256),
+            nn.ReLU(),
+            nn.Linear(256, img_dim),
+            nn.Tanh()
+        )
+
+    def forward(self, noise, labels):
+        x = torch.cat([noise, labels], dim=1)
+        return self.gen(x)
+
+# Simple discriminator (optional, but for training completeness)
+class Discriminator(nn.Module):
+    def __init__(self, img_dim=28*28):
+        super(Discriminator, self).__init__()
+        self.disc = nn.Sequential(
+            nn.Linear(img_dim + 10, 256),
+            nn.LeakyReLU(0.2),
+            nn.Linear(256, 128),
+            nn.LeakyReLU(0.2),
+            nn.Linear(128, 1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, img, labels):
+        x = torch.cat([img, labels], dim=1)
+        return self.disc(x)
+
+# Hyperparameters
+z_dim = 100
+lr = 0.0002
+epochs = 5
+batch_size = 64
+
+# Data
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.5,), (0.5,))
+])
+train_data = datasets.MNIST(root="./data", train=True, transform=transform, download=True)
+loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+
+# Initialize models
+gen = Generator(z_dim)
+disc = Discriminator()
+
+criterion = nn.BCELoss()
+gen_opt = optim.Adam(gen.parameters(), lr=lr)
+disc_opt = optim.Adam(disc.parameters(), lr=lr)
+
+# Training loop (simplified)
+for epoch in range(epochs):
+    for real, labels in loader:
+        real = real.view(-1, 28*28)
+        batch_size = real.size(0)
+
+        # One-hot encode labels
+        labels_onehot = torch.nn.functional.one_hot(labels, num_classes=10).float()
+
+        # Train discriminator
+        noise = torch.randn(batch_size, z_dim)
+        fake_labels = torch.randint(0, 10, (batch_size,))
+        fake_labels_onehot = torch.nn.functional.one_hot(fake_labels, num_classes=10).float()
+        fake = gen(noise, fake_labels_onehot)
+
+        disc_real = disc(real, labels_onehot).view(-1)
+        disc_fake = disc(fake.detach(), fake_labels_onehot).view(-1)
+
+        loss_disc = criterion(disc_real, torch.ones_like(disc_real)) + \
+                    criterion(disc_fake, torch.zeros_like(disc_fake))
+
+        disc.zero_grad()
+        loss_disc.backward()
+        disc_opt.step()
+
+        # Train generator
+        output = disc(fake, fake_labels_onehot).view(-1)
+        loss_gen = criterion(output, torch.ones_like(output))
+
+        gen.zero_grad()
+        loss_gen.backward()
+        gen_opt.step()
+
+    print(f"Epoch [{epoch+1}/{epochs}]  Loss D: {loss_disc:.4f}, Loss G: {loss_gen:.4f}")
+
+# Save the trained generator
+torch.save(gen.state_dict(), "generator.pt")
+
 import streamlit as st
 import matplotlib.pyplot as plt
 
