@@ -83,43 +83,6 @@ criterion = nn.BCELoss()
 gen_opt = optim.Adam(gen.parameters(), lr=lr)
 disc_opt = optim.Adam(disc.parameters(), lr=lr)
 
-# Training loop (simplified)
-for epoch in range(epochs):
-    for real, labels in loader:
-        real = real.view(-1, 28*28)
-        batch_size = real.size(0)
-
-        # One-hot encode labels
-        labels_onehot = torch.nn.functional.one_hot(labels, num_classes=10).float()
-
-        # Train discriminator
-        noise = torch.randn(batch_size, z_dim)
-        fake_labels = torch.randint(0, 10, (batch_size,))
-        fake_labels_onehot = torch.nn.functional.one_hot(fake_labels, num_classes=10).float()
-        fake = gen(noise, fake_labels_onehot)
-
-        disc_real = disc(real, labels_onehot).view(-1)
-        disc_fake = disc(fake.detach(), fake_labels_onehot).view(-1)
-
-        loss_disc = criterion(disc_real, torch.ones_like(disc_real)) + \
-                    criterion(disc_fake, torch.zeros_like(disc_fake))
-
-        disc.zero_grad()
-        loss_disc.backward()
-        disc_opt.step()
-
-        # Train generator
-        output = disc(fake, fake_labels_onehot).view(-1)
-        loss_gen = criterion(output, torch.ones_like(output))
-
-        gen.zero_grad()
-        loss_gen.backward()
-        gen_opt.step()
-
-    print(f"Epoch [{epoch+1}/{epochs}]  Loss D: {loss_disc:.4f}, Loss G: {loss_gen:.4f}")
-
-# Save the trained generator
-torch.save(gen.state_dict(), "generator.pt")
 
 import streamlit as st
 import matplotlib.pyplot as plt
